@@ -43,3 +43,69 @@ socket.on('created',room =>{
                 console.log("an error occured",err)
             })
 })
+
+socket.on('join',room =>{
+    navigator.mediaDevices.getUserMedia(streamConstraints)
+            .then(stream => {
+                localStream = stream
+                localVideo.srcObject = stream
+                socket.emit('ready',roomNumber)
+            })
+            .catch(err =>{
+                console.log("an error occured",err)
+            })
+})
+
+socket.on('ready', () => {
+    if(isCaller){
+        rtcPeerConnection = new RTCPeerConnection(iceServers)
+        rtcPeerConnection.onicecandidate = onicecandidate
+        rtcPeerConnection.ontrack = onAddStream
+        rtcPeerConnection.addTrack(localStream.getTracks()[0], localStream)
+        rtcPeerConnection.addTrack(localStream.getTracks()[1], localStream)
+        rtcPeerConnection.createOffer()
+            .then(sessionDescription => {
+                rtcPeerConnection.setLocalDescription(sessionDescription)
+                socket.emit('offer', {
+                    type: 'offer',
+                    sdp: sessionDescription,
+                    room: roomNumber
+                })
+            })
+            .catch(err => {
+                console.log(err)
+            })
+    }
+})
+
+socket.on('offer', (event) => {
+    if(!isCaller){
+        rtcPeerConnection = new RTCPeerConnection(iceServers)
+        rtcPeerConnection.onicecandidate = onicecandidate
+        rtcPeerConnection.ontrack = onAddStream
+        rtcPeerConnection.addTrack(localStream.getTracks()[0], localStream)
+        rtcPeerConnection.addTrack(localStream.getTracks()[1], localStream)
+        rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+        rtcPeerConnection.createAnswer()
+            .then(sessionDescription => {
+                rtcPeerConnection.setLocalDescription(sessionDescription)
+                socket.emit('answer', {
+                    type: 'answer',
+                    sdp: sessionDescription,
+                    room: roomNumber
+                })
+            })
+            .catch(err => {
+                console.log(err)
+            })
+    }
+})
+
+socket.on('answer',event => {
+    rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+})
+
+function onAddStream(event) {
+    remoteVideo.srcObject = event.strams[0]
+    remoteStream = event.stream[0]
+}
